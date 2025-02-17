@@ -1,7 +1,7 @@
 {
-    "name": "module",
+    "name": "parse-env",
     "version": "0.0.1",
-    "description": "A boilerplate for creating a module",
+    "description": "A simple module for parsing environment variables",
     "main": "dist/index.js",
     "exports": {
         ".": {
@@ -27,7 +27,8 @@
         "release": "npm run ci && changeset publish"
     },
     "keywords": [
-        "module"
+        "env",
+        "parse"
     ],
     "author": "Johnie Hjelm <johnie@hjelm.im>",
     "license": "MIT",
