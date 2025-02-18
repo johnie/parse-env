@@ -1,58 +1,62 @@
-/**
- * Parses a string containing environment variable definitions and returns an object.
- *
- * Each non-empty line that does not start with '#' is expected to have the format:
- * KEY=VALUE
- *
- * Values may be optionally wrapped in single or double quotes.
- *
- * @param envString - The input string containing environment variable definitions.
- * @returns An object where keys are the environment variable names and values are their corresponding values.
- */
-export function parseEnv(envString: string): Record<string, string> {
-  const result: Record<string, string> = {};
-  // Split the input string into lines (handles both Unix and Windows newlines)
-  const lines = envString.split(/\r?\n/);
+export type EnvRecord = Record<string, string>;
 
-  for (const line of lines) {
-    // Trim whitespace from the line.
-    const trimmedLine = line.trim();
+type ParseOptions = {
+  throwOnInvalid?: boolean;
+  preserveQuotes?: boolean;
+};
 
-    // Skip empty lines or lines that start with '#' (comments).
-    if (!trimmedLine || trimmedLine.startsWith('#')) {
-      continue;
-    }
-
-    // Find the first '=' which separates the key and value.
-    const equalsIndex = trimmedLine.indexOf('=');
-    if (equalsIndex === -1) {
-      // If there is no '=', the line is not valid and can be skipped.
-      continue;
-    }
-
-    // Extract the key and value, trimming any extra whitespace.
-    const key = trimmedLine.substring(0, equalsIndex).trim();
-    let value = trimmedLine.substring(equalsIndex + 1).trim();
-
-    // Remove surrounding quotes from the value if present.
-    if (
-      (value.startsWith('"') && value.endsWith('"')) ||
-      (value.startsWith("'") && value.endsWith("'"))
-    ) {
-      value = value.substring(1, value.length - 1);
-    }
-
-    result[key] = value;
+class InvalidEnvError extends Error {
+  constructor(line: string, message: string) {
+    super(`Invalid environment variable at line: "${line}". ${message}`);
+    this.name = 'InvalidEnvError';
   }
-
-  return result;
 }
 
-export function isEnv(envString: string): boolean {
-  return envString.split(/\r?\n/).every((line) => {
-    const trimmedLine = line.trim();
-    return (
-      !trimmedLine || trimmedLine.startsWith('#') || trimmedLine.includes('=')
-    );
-  });
+const ENV_LINE_REGEX = /^\s*([\w.-]+)\s*=\s*(.*)?\s*$/;
+const QUOTED_VALUE_REGEX = /^(['"])(.*)\1$/;
+const NEWLINE_REGEX = /\r?\n/;
+
+export function parseEnv(input: string, options: ParseOptions = {}): EnvRecord {
+  const { throwOnInvalid = false, preserveQuotes = false } = options;
+  const env: EnvRecord = {};
+
+  input
+    .split(NEWLINE_REGEX)
+    .map((line) => line.trim())
+    .filter(isValidLine)
+    .forEach((line) => {
+      const match = line.match(ENV_LINE_REGEX);
+
+      if (!match) {
+        if (throwOnInvalid) {
+          throw new InvalidEnvError(line, 'Expected format: KEY=VALUE');
+        }
+        return;
+      }
+
+      const [, key, rawValue = ''] = match;
+      if (key) {
+        env[key] = preserveQuotes ? rawValue : removeQuotes(rawValue);
+      }
+
+      return env;
+    });
+
+  return env;
+}
+
+export function isEnv(input: string): boolean {
+  return input
+    .split(NEWLINE_REGEX)
+    .map((line) => line.trim())
+    .every((line) => !line || isValidLine(line));
+}
+
+function isValidLine(line: string): boolean {
+  return Boolean(line && !line.startsWith('#'));
+}
+
+function removeQuotes(value: string): string {
+  const match = value.match(QUOTED_VALUE_REGEX);
+  return match ? match[2] || '' : value;
 }
