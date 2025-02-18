@@ -20,36 +20,43 @@ export function parseEnv(input: string, options: ParseOptions = {}): EnvRecord {
   const { throwOnInvalid = false, preserveQuotes = false } = options;
   const env: EnvRecord = {};
 
-  input
-    .split(NEWLINE_REGEX)
-    .map((line) => line.trim())
-    .filter(isValidLine)
-    .forEach((line) => {
-      const match = line.match(ENV_LINE_REGEX);
+  for (const line of input.split(NEWLINE_REGEX)) {
+    const trimmedLine = line.trim();
 
-      if (!match) {
-        if (throwOnInvalid) {
-          throw new InvalidEnvError(line, 'Expected format: KEY=VALUE');
-        }
-        return;
+    // Skip empty lines and comments
+    if (!trimmedLine || trimmedLine.startsWith('#')) {
+      continue;
+    }
+
+    const match = trimmedLine.match(ENV_LINE_REGEX);
+    if (!match) {
+      if (throwOnInvalid) {
+        throw new InvalidEnvError(trimmedLine, 'Expected format: KEY=VALUE');
       }
+      continue;
+    }
 
-      const [, key, rawValue = ''] = match;
-      if (key) {
-        env[key] = preserveQuotes ? rawValue : removeQuotes(rawValue);
-      }
-
-      return env;
-    });
+    const [, key, rawValue = ''] = match;
+    if (key) {
+      env[key] = preserveQuotes ? rawValue : removeQuotes(rawValue);
+    }
+  }
 
   return env;
 }
 
 export function isEnv(input: string): boolean {
-  return input
-    .split(NEWLINE_REGEX)
-    .map((line) => line.trim())
-    .every((line) => !line || isValidLine(line));
+  for (const line of input.split(NEWLINE_REGEX)) {
+    const trimmedLine = line.trim();
+    if (
+      trimmedLine &&
+      !trimmedLine.startsWith('#') &&
+      !ENV_LINE_REGEX.test(trimmedLine)
+    ) {
+      return false;
+    }
+  }
+  return true;
 }
 
 function isValidLine(line: string): boolean {
